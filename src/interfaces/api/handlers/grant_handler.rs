@@ -351,13 +351,10 @@ pub async fn list_shared_with_me(
 
     // Validate sort_by (defaults to "granted_at").
     let sort_by = q.sort_by.as_deref().unwrap_or("granted_at");
-    if !matches!(
-        sort_by,
-        "granted_at" | "granted_by" | "name" | "type" | "size"
-    ) {
+    if !matches!(sort_by, "granted_at" | "granted_by" | "name" | "type") {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "invalid sort_by; valid values: granted_at, granted_by, name, type, size"})),
+            Json(serde_json::json!({"error": "invalid sort_by; valid values: granted_at, granted_by, name, type"})),
         )
             .into_response();
     }

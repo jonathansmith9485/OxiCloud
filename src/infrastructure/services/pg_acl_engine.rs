@@ -469,42 +469,6 @@ impl AuthorizationEngine for PgAclEngine {
                     LIMIT $8"#
                 )
             }
-            "size" => {
-                // Folders have no size — sentinel -1 (sorts first ASC, last DESC).
-                // Cursor encodes (sort_int=$5, resource_id=$7); $4/$6 unused.
-                let (where_clause, order_clause) = if reverse {
-                    (
-                        r#"(  $5::bigint IS NULL
-                          OR sort_int < $5
-                          OR (sort_int = $5 AND resource_id < $7::uuid))"#,
-                        "sort_int DESC, resource_id DESC",
-                    )
-                } else {
-                    (
-                        r#"(  $5::bigint IS NULL
-                          OR sort_int > $5
-                          OR (sort_int = $5 AND resource_id > $7::uuid))"#,
-                        "sort_int ASC, resource_id ASC",
-                    )
-                };
-                format!(
-                    r#"WITH {AGG},
-                    sized AS (
-                        SELECT agg.*,
-                            NULL::text AS sort_str,
-                            CASE WHEN agg.resource_type = 'folder' THEN -1
-                                 ELSE fi.size
-                            END AS sort_int
-                        FROM agg
-                        LEFT JOIN storage.files fi ON fi.id = agg.resource_id AND agg.resource_type = 'file'
-                    )
-                    SELECT resource_type, resource_id, permissions, granted_at, granted_by, sort_str, sort_int
-                    FROM sized
-                    WHERE {where_clause}
-                    ORDER BY {order_clause}
-                    LIMIT $8"#
-                )
-            }
             _ => {
                 // Default: sort by grant date.
                 // Normal = DESC (newest first); reversed = ASC (oldest first).
@@ -586,14 +550,6 @@ impl AuthorizationEngine for PgAclEngine {
                         resource_id: r.1,
                         resource_name: r.5.clone(), // already lowercased by SQL
                         sort_int: None,
-                        reverse,
-                    },
-                    "size" => GrantCursor {
-                        sort_by: "size".to_owned(),
-                        granted_at: r.3,
-                        resource_id: r.1,
-                        resource_name: None,
-                        sort_int: r.6,
                         reverse,
                     },
                     _ => GrantCursor {
