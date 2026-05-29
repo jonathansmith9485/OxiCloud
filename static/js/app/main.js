@@ -529,6 +529,12 @@ function initApp() {
     window.addEventListener('authenticationDone', async () => {
         // Check if a context was provided in the URL
         const hashContext = deserializeHash();
+
+        // Always fetch grants so shared badges are correct regardless of the
+        // initial section. Fire in the background — don't block section init.
+        grants.fetchIncomingGrants();
+        grants.fetchOutgoingGrants();
+
         switchSectionTo(hashContext.section);
         if (hashContext.section === 'files') {
             if (hashContext.path) {
@@ -540,9 +546,6 @@ function initApp() {
                 app.viewFile = hashContext.file;
             }
 
-            // get grants (xxx: async methods)
-            await grants.fetchIncomingGrants();
-            await grants.fetchOutgoingGrants();
             loadFiles();
         }
     });

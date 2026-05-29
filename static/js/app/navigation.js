@@ -10,11 +10,12 @@ import { batchToolbar } from '../features/files/batchToolbar.js';
 import { favorites } from '../features/library/favorites.js';
 import { musicView } from '../features/library/music.js';
 import { photosView } from '../features/library/photos.js';
+import { grants } from '../model/grants.js';
 import { favoritesView } from '../views/favorites/favoritesView.js';
 import { mySharesView } from '../views/myShares/mySharesView.js';
 import { recentView } from '../views/recent/recentView.js';
 import { sharedWithMeView } from '../views/sharedWithMe/sharedWithMeView.js';
-import { filesView, loadFiles } from './filesView.js';
+import { filesView, loadFiles, refreshSharedBadges } from './filesView.js';
 import { setActionsBarMode, setGroupByView, syncGroupByMenu } from './main.js';
 import { app, appElements } from './state.js';
 import { loadTrashItems } from './trashView.js';
@@ -300,6 +301,12 @@ function switchToFilesSection() {
     if (batchToolbar) batchToolbar.clear();
 
     loadFiles();
+
+    // Refresh outgoing grants in the background and repaint badges once done.
+    // Badges are rendered synchronously from the in-memory cache, so any staleness
+    // from navigating away and back (or starting on a different section) is corrected
+    // without blocking the file list render.
+    grants.fetchOutgoingGrants().then(() => refreshSharedBadges());
 }
 
 function switchToFavoritesSection() {

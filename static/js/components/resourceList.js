@@ -55,7 +55,9 @@ import { createUserVignette } from './userVignette.js';
  * @property {(item: FileItem|FolderItem) => Promise<void>} [onFavoriteToggle]
  *   Called when the user clicks the favorite-star button.
  * @property {(item: FileItem|FolderItem, event: MouseEvent) => void} [onContextMenu]
- *   Called for the three-dots button click, right-click, and shared-badge click.
+ *   Called for the three-dots button click and right-click.
+ * @property {(item: FileItem|FolderItem) => void} [onShareBadgeClick]
+ *   Called when the user clicks the shared badge. Falls back to onContextMenu if absent.
  * @property {(selected: Array<FileItem|FolderItem>) => void} [onSelectionChange]
  *   Called whenever the selection set changes.
  */
@@ -333,6 +335,19 @@ export class ResourceListComponent {
         item.querySelector('.file-badge-shared')?.classList.toggle('hidden', !isShared);
     }
 
+    /**
+     * Re-evaluate the shared badge for every currently rendered item using the
+     * `isShared` callback from config.  Call this after the grants cache is refreshed.
+     */
+    refreshSharedBadges() {
+        if (!this._cfg.isShared) return;
+        for (const item of this._items.values()) {
+            const isFile = 'mime_type' in item;
+            const type = /** @type {'file'|'folder'} */ (isFile ? 'file' : 'folder');
+            this.setSharedVisualState(item.id, type, this._cfg.isShared(item.id, type));
+        }
+    }
+
     // ── Private helpers ─────────────────────────────────────────────────────
 
     /**
@@ -532,14 +547,18 @@ export class ResourceListComponent {
             });
         }
 
-        // Shared-badge click → treat as context-menu trigger (e.g. open share modal)
-        if (cfg.showShareBadge && cfg.onContextMenu) {
+        // Shared-badge click → open share modal (or fall back to context menu)
+        if (cfg.showShareBadge && (cfg.onShareBadgeClick || cfg.onContextMenu)) {
             const badge = el.querySelector('.file-badge-shared');
             badge?.addEventListener('click', (e) => {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 e.preventDefault();
-                cfg.onContextMenu?.(item, /** @type {MouseEvent} */ (e));
+                if (cfg.onShareBadgeClick) {
+                    cfg.onShareBadgeClick(item);
+                } else {
+                    cfg.onContextMenu?.(item, /** @type {MouseEvent} */ (e));
+                }
             });
         }
     }
