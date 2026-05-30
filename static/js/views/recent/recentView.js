@@ -32,8 +32,8 @@ import { systemUsers } from '../../model/systemUsers.js';
 /** @import {FileItem, FolderItem, ResourceTypeEnum} from '../../core/types.js' */
 
 /**
- * @typedef {{ key: string, label: string, orderBy: string,
- *             keyFn: (item: FileItem|FolderItem) => string|null,
+ * @typedef {{ key: string, label: string, icon?: string, orderBy: string,
+ *             keyFn?: (item: FileItem|FolderItem) => string|null,
  *             labelFn?: (key: string) => string,
  *             headerNodeFn?: (key: string) => HTMLElement }} GroupByDef
  */
@@ -55,10 +55,20 @@ import { systemUsers } from '../../model/systemUsers.js';
  */
 const GROUP_BY_DEFS = [
     {
+        key: '',
+        get label() {
+            return i18n.t('files.name', 'Name');
+        },
+        icon: 'fas fa-arrow-up-a-z',
+        orderBy: 'name'
+        // no keyFn → flat list.
+    },
+    {
         key: 'owner',
         get label() {
             return i18n.t('groupby.owner', 'Owner');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'owner',
         keyFn: (item) => {
             const r = /** @type {Record<string,string>} */ (/** @type {unknown} */ (item));
@@ -72,6 +82,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.type', 'Type');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'type',
         keyFn: (item) => ('mime_type' in item ? /** @type {Record<string,string>} */ (/** @type {unknown} */ (item)).category || 'other' : 'Folder'),
         labelFn: (key) => {
@@ -100,6 +111,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.size', 'Size');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'size',
         keyFn: (item) => {
             if (!('mime_type' in item)) return sizeBucket(-1);
@@ -112,6 +124,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.accessedAt', 'Accessed date');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'accessed_at',
         // sort_date is unix seconds set in _mapItems(); keyFn returns the bucket label.
         keyFn: (item) => {
@@ -124,6 +137,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.modifiedAt', 'Modified date');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'modified_at',
         keyFn: (item) => {
             const r = /** @type {Record<string,number>} */ (/** @type {unknown} */ (item));

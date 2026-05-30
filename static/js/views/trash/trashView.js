@@ -28,8 +28,8 @@ import { fetchTrashPage } from '../../model/trashModel.js';
 /** @import {FileItem, FolderItem, ResourceTypeEnum, TrashResourceItem} from '../../core/types.js' */
 
 /**
- * @typedef {{ key: string, label: string, orderBy: string, reverseDefault?: boolean,
- *             keyFn: (item: FileItem|FolderItem) => string|null,
+ * @typedef {{ key: string, label: string, icon?: string, orderBy: string, reverseDefault?: boolean,
+ *             keyFn?: (item: FileItem|FolderItem) => string|null,
  *             labelFn?: (key: string) => string,
  *             headerNodeFn?: (key: string) => HTMLElement }} GroupByDef
  */
@@ -50,10 +50,21 @@ import { fetchTrashPage } from '../../model/trashModel.js';
  */
 const GROUP_BY_DEFS = [
     {
+        key: '',
+        get label() {
+            return i18n.t('files.name', 'Name');
+        },
+        icon: 'fas fa-arrow-up-a-z',
+        orderBy: 'name',
+        reverseDefault: false
+        // no keyFn → ResourceListComponent renders a flat list (server pins folders first).
+    },
+    {
         key: 'remainingDays',
         get label() {
             return i18n.t('trash.groupby.remaining_days', 'Remaining days');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'deletion_date',
         reverseDefault: false,
         keyFn: (item) => {
@@ -66,6 +77,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.type', 'Type');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'type',
         reverseDefault: false,
         keyFn: (item) => ('mime_type' in item ? /** @type {Record<string,string>} */ (/** @type {unknown} */ (item)).category || 'other' : 'Folder'),
@@ -95,6 +107,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.size', 'Size');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'size',
         reverseDefault: false,
         keyFn: (item) => {
@@ -108,6 +121,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('trash.groupby.trashed_time', 'Trashed time');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'trashed_at',
         reverseDefault: false,
         keyFn: (item) => {

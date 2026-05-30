@@ -25,8 +25,8 @@ import { systemUsers } from '../../model/systemUsers.js';
 /** @import {SharedWithMeItem, FileItem, FolderItem, ResourceTypeEnum} from '../../core/types.js' */
 
 /**
- * @typedef {{ key: string, label: string, orderBy: string,
- *             keyFn: (item: FileItem|FolderItem) => string|null,
+ * @typedef {{ key: string, label: string, icon?: string, orderBy: string,
+ *             keyFn?: (item: FileItem|FolderItem) => string|null,
  *             labelFn?: (key: string) => string,
  *             headerNodeFn?: (key: string) => HTMLElement }} GroupByDef
  */
@@ -45,12 +45,22 @@ import { systemUsers } from '../../model/systemUsers.js';
  */
 const GROUP_BY_DEFS = [
     {
+        key: '',
+        get label() {
+            return i18n.t('files.name', 'Name');
+        },
+        icon: 'fas fa-arrow-up-a-z',
+        orderBy: 'name'
+        // no keyFn → flat list.
+    },
+    {
         key: 'owner',
         // label is accessed via syncGroupByMenu → read at section-switch time,
         // when translations are guaranteed to be loaded.
         get label() {
             return i18n.t('groupby.owner', 'Owner');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'granted_by',
         // keyFn groups by UUID — stable and unique, avoids collisions between
         // users with the same display name.
@@ -67,6 +77,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.type', 'Type');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'type',
         // keyFn: folders get their own swimlane; files use the pre-computed
         // `category` field from the DTO (e.g. 'Image', 'Video', 'Audio' …).
@@ -99,6 +110,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.size', 'Size');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'size',
         // keyFn: the key IS the bucket label returned by sizeBucket(), so no
         // separate labelFn is needed (same pattern as shareDate).
@@ -115,6 +127,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.shareDate', 'Share date');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'granted_at',
         // keyFn returns the human-readable bucket label; the label IS the key
         // because consecutive items with the same bucket should be in one group.

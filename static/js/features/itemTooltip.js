@@ -27,21 +27,19 @@ import { i18n } from '../core/i18n.js';
 import { systemUsers } from '../model/systemUsers.js';
 
 // ── Tooltip DOM ───────────────────────────────────────────────────────────────
+//
+// The tooltip element is a static node inside `.search-slot` (see index.html)
+// and is absolutely positioned over `.search-container`. Show/hide is a
+// simple `.hidden` toggle on the tooltip itself — the search bar underneath
+// is never touched, so there's no two-element swap to keep in sync.
 
-/** @returns {HTMLElement} */
-function _getOrCreateTooltip() {
-    let el = document.getElementById('path-tooltip');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'path-tooltip';
-        el.className = 'path-tooltip hidden';
-        document.body.appendChild(el);
-    }
-    return el;
+/** @returns {HTMLElement | null} */
+function _getTooltip() {
+    return document.getElementById('path-tooltip');
 }
 
 function _hide() {
-    const el = document.getElementById('path-tooltip');
+    const el = _getTooltip();
     if (el) el.classList.add('hidden');
 }
 
@@ -98,7 +96,8 @@ function _onEnter(e) {
     // Nothing to show — don't display an all-? tooltip.
     if (!ownerId && !path) return;
 
-    const tooltip = _getOrCreateTooltip();
+    const tooltip = _getTooltip();
+    if (!tooltip) return;
 
     // Clear previous content.
     while (tooltip.firstChild) tooltip.removeChild(tooltip.firstChild);
@@ -140,14 +139,19 @@ const _registry = new WeakMap();
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+/** Containers known to expose `data-path`/`data-owner-id` for tooltip use.
+ *  Add new opt-in row classes here when other views want the tooltip — each
+ *  one must stamp the dataset attributes itself. */
+const _TOOLTIP_SELECTOR = '.file-item, .ms-resource-row, .ms-grant-row';
+
 /**
- * Attach tooltip listeners to every `.file-item` inside `container`.
- * Items with neither `data-owner-id` nor `data-path` will not trigger the
+ * Attach tooltip listeners to every tooltip-capable row inside `container`.
+ * Rows with neither `data-owner-id` nor `data-path` will not trigger the
  * tooltip.  Safe to call repeatedly — already-wired elements are skipped.
  * @param {HTMLElement} container
  */
 function init(container) {
-    for (const item of container.querySelectorAll('.file-item')) {
+    for (const item of container.querySelectorAll(_TOOLTIP_SELECTOR)) {
         const el = /** @type {HTMLElement} */ (item);
         if (_registry.has(el)) continue; // already wired
 
@@ -161,12 +165,12 @@ function init(container) {
 }
 
 /**
- * Remove tooltip listeners from all `.file-item` elements inside `container`
+ * Remove tooltip listeners from all tooltip-capable rows inside `container`
  * and hide any visible tooltip.
  * @param {HTMLElement} container
  */
 function destroy(container) {
-    for (const item of container.querySelectorAll('.file-item')) {
+    for (const item of container.querySelectorAll(_TOOLTIP_SELECTOR)) {
         const el = /** @type {HTMLElement} */ (item);
         const h = _registry.get(el);
         if (h) {

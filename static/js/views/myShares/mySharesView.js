@@ -22,7 +22,7 @@ import { grants } from '../../model/grants.js';
 /** @import {FileItem, FolderItem} from '../../core/types.js' */
 
 /**
- * @typedef {{ key: string, label: string, orderBy: string }} GroupByDef
+ * @typedef {{ key: string, label: string, icon?: string, orderBy: string }} GroupByDef
  * @typedef {'items'|'sharedWith'} ViewMode
  */
 
@@ -42,6 +42,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.byFiles', 'By files');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'type'
     },
     {
@@ -49,6 +50,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.sharedWith', 'Shared with');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'subject'
     }
 ];

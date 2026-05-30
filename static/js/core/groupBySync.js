@@ -22,7 +22,8 @@
  *
  * No-op when the menu elements are not in the DOM (e.g. before initApp).
  *
- * @param {string}  groupBy   Active group-by key, or `''` for "None".
+ * @param {string}  groupBy   Active group-by key, e.g. `''` for the "Name"
+ *                            / flat-sort option a section opts into.
  * @param {boolean} reversed  Whether sort direction is reversed.
  */
 function applyGroupByMenuState(groupBy, reversed) {
@@ -32,18 +33,14 @@ function applyGroupByMenuState(groupBy, reversed) {
         btn.classList.toggle('active', (btn.dataset.groupBy ?? '') === groupBy);
     }
 
-    // Group-by button: active class + label text.
+    // Group-by button always reflects the active option (icon + label).
     const groupByBtn = document.getElementById('group-by-btn');
-    groupByBtn?.classList.toggle('active', groupBy !== '');
+    groupByBtn?.classList.add('active');
 
     const lbl = groupByBtn?.querySelector('.group-by-label');
     if (lbl) {
-        if (groupBy === '') {
-            lbl.textContent = '';
-        } else {
-            const activeOpt = /** @type {HTMLElement|null} */ (document.querySelector(`.group-by-option[data-group-by="${CSS.escape(groupBy)}"]`));
-            lbl.textContent = activeOpt?.textContent ?? '';
-        }
+        const activeOpt = /** @type {HTMLElement|null} */ (document.querySelector(`.group-by-option[data-group-by="${CSS.escape(groupBy)}"]`));
+        lbl.innerHTML = activeOpt?.innerHTML ?? '';
     }
 
     // Sort-direction button: active = reversed.

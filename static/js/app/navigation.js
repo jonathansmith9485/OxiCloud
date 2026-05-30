@@ -417,6 +417,8 @@ function switchToTrashSection() {
     setActionsBarMode('trash');
     setGroupByView(trashView);
     syncGroupByMenu(trashView.groupByDefs);
+    const trashPrefs = viewPrefs.load('trash');
+    applyGroupByMenuState(trashPrefs.groupBy || 'remainingDays', trashPrefs.reversed);
 
     //reset files view + remove any error
     ui.resetFilesList();

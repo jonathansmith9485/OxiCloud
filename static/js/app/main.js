@@ -86,7 +86,6 @@ const _toggleButtons = `
         <div class="group-by-selector hidden" id="group-by-selector">
             <button class="toggle-btn group-by-btn" id="group-by-btn"
                     title="Group by" data-i18n-title="groupby.title">
-                <i class="fas fa-layer-group"></i>
                 <span class="group-by-label"></span>
             </button>
             <button class="toggle-btn sort-dir-btn" id="sort-dir-btn"
@@ -168,7 +167,6 @@ const ACTIONS_BAR_TEMPLATES = {
             <div class="group-by-selector hidden" id="group-by-selector">
                 <button class="toggle-btn group-by-btn" id="group-by-btn"
                         title="Group by" data-i18n-title="groupby.title">
-                    <i class="fas fa-layer-group"></i>
                     <span class="group-by-label"></span>
                 </button>
                 <button class="toggle-btn sort-dir-btn" id="sort-dir-btn"
@@ -251,7 +249,7 @@ let _groupByDocumentClickHandler = null;
  * Must be called AFTER `setActionsBarMode()` so the selector elements exist
  * in the DOM.
  *
- * @param {Array<{key: string, label: string}>} [defs]
+ * @param {Array<{key: string, label: string, icon?: string}>} [defs]
  */
 function syncGroupByMenu(defs = []) {
     const selector = document.getElementById('group-by-selector');
@@ -274,15 +272,18 @@ function syncGroupByMenu(defs = []) {
         return;
     }
 
-    // Rebuild menu options — call i18n.t() directly so each label is resolved
-    // at call time (translations are loaded by the time any section switch runs).
-    // A def with key='' lets the section override the default "None" label.
-    const noneOverride = defs.find((d) => d.key === '');
-    const noneLabel = noneOverride ? noneOverride.label : i18n.t('groupby.none', 'None');
-    menu.innerHTML = `<button class="group-by-option active" data-group-by="">${escapeHtml(noneLabel)}</button>`;
+    // Rebuild menu options — call i18n.t() at call time so labels are
+    // localised. Each def supplies its own icon. A section opts into an
+    // ungrouped/sorted entry by including a def with key=''.
+    menu.innerHTML = '';
     for (const def of defs) {
-        if (def.key === '') continue;
-        menu.insertAdjacentHTML('beforeend', `<button class="group-by-option" data-group-by="${escapeHtml(def.key)}">${escapeHtml(def.label)}</button>`);
+        const iconClass = def.icon ?? 'fas fa-layer-group';
+        menu.insertAdjacentHTML(
+            'beforeend',
+            `<button class="group-by-option" data-group-by="${escapeHtml(def.key)}">` +
+                `<i class="${escapeHtml(iconClass)}"></i> ${escapeHtml(def.label)}` +
+                `</button>`
+        );
     }
 
     // One stable document-level handler to close the menu on outside clicks.
@@ -314,9 +315,10 @@ function setupActionsBarDelegation() {
             btn.classList.add('active');
             document.getElementById('group-by-menu')?.classList.add('hidden');
             const groupByBtn = document.getElementById('group-by-btn');
-            groupByBtn?.classList.toggle('active', key !== '');
+            // Always active — there's no neutral "None" state anymore.
+            groupByBtn?.classList.add('active');
             const lbl = groupByBtn?.querySelector('.group-by-label');
-            if (lbl) lbl.textContent = key !== '' ? (btn.textContent ?? '') : '';
+            if (lbl) lbl.innerHTML = btn.innerHTML; // clone icon + label markup
             // Changing order-by dimension resets direction to ascending
             _groupByView?.setDirection(false);
             document.getElementById('sort-dir-btn')?.classList.remove('active');

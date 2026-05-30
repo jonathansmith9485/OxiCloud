@@ -31,8 +31,8 @@ import { systemUsers } from '../../model/systemUsers.js';
 /** @import {FavoritesResourceItem, FileItem, FolderItem, ResourceTypeEnum} from '../../core/types.js' */
 
 /**
- * @typedef {{ key: string, label: string, orderBy: string,
- *             keyFn: (item: FileItem|FolderItem) => string|null,
+ * @typedef {{ key: string, label: string, icon?: string, orderBy: string,
+ *             keyFn?: (item: FileItem|FolderItem) => string|null,
  *             labelFn?: (key: string) => string,
  *             headerNodeFn?: (key: string) => HTMLElement }} GroupByDef
  */
@@ -45,10 +45,20 @@ import { systemUsers } from '../../model/systemUsers.js';
  */
 const GROUP_BY_DEFS = [
     {
+        key: '',
+        get label() {
+            return i18n.t('files.name', 'Name');
+        },
+        icon: 'fas fa-arrow-up-a-z',
+        orderBy: 'name'
+        // no keyFn → flat list.
+    },
+    {
         key: 'owner',
         get label() {
             return i18n.t('groupby.owner', 'Owner');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'owner',
         // keyFn groups by UUID — stable, avoids collisions on identical display names.
         keyFn: (item) => {
@@ -63,6 +73,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.type', 'Type');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'type',
         // keyFn: folders → 'Folder' swimlane; files → their `category` field.
         keyFn: (item) => ('mime_type' in item ? /** @type {Record<string,string>} */ (/** @type {unknown} */ (item)).category || 'other' : 'Folder'),
@@ -92,6 +103,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.size', 'Size');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'size',
         // Folders have no size — sizeBucket(-1) returns the "Folders" label.
         keyFn: (item) => {
@@ -105,6 +117,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.favoriteDate', 'Favorite date');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'favorited_at',
         // sort_date is stored as unix seconds in _mapItems().
         keyFn: (item) => {
@@ -117,6 +130,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.modifiedAt', 'Modified date');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'modified_at',
         // modified_at is a unix seconds timestamp on FileItem/FolderItem.
         keyFn: (item) => {

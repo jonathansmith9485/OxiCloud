@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Declares the page supports both modes. Switching between them is
+         driven by the CSS `color-scheme` property (via the `data-color-scheme`
+         attribute on <html> set by theme-init.js), not by mutating this tag. -->
+    <meta name="color-scheme" content="light dark">
     <title data-i18n="app.title">OxiCloud</title>
     <link rel="icon" type="image/svg+xml" href="/logo/logo-plain.svg">
     <!-- Apply saved theme immediately to prevent flash of light mode -->
@@ -132,12 +136,17 @@
             <button class="search-back-btn" id="search-back-btn" aria-label="Close search">
                 <i class="fas fa-arrow-left"></i>
             </button>
-            <div class="search-container">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="search-input" data-i18n-placeholder="actions.search" placeholder="Search files, folders...">
-                <button id="search-button" class="search-button" data-i18n-title="actions.search_btn" title="Search">
-                    <i class="fas fa-search"></i>
-                </button>
+            <!-- Search slot — positioning context for the item tooltip, which
+                 absolutely overlays the search bar when an item is hovered. -->
+            <div class="search-slot">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-input" data-i18n-placeholder="actions.search" placeholder="Search files, folders...">
+                    <button id="search-button" class="search-button" data-i18n-title="actions.search_btn" title="Search">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div id="path-tooltip" class="path-tooltip hidden" aria-hidden="true"></div>
             </div>
 
             <div class="user-controls">
@@ -195,13 +204,30 @@
                         </button>
                         <div class="user-menu-divider hidden" id="user-menu-admin-divider"></div>
                         <div id="language-selector"></div>
-                        <button class="user-menu-item" id="user-menu-theme">
+                        <div class="user-menu-item user-menu-item--theme">
                             <i class="fas fa-moon"></i>
                             <span data-i18n="user_menu.appearance">Appearance</span>
-                            <div class="theme-toggle-pill" id="theme-toggle-pill">
-                                <div class="theme-toggle-knob"></div>
+                            <div class="theme-segmented" id="user-menu-theme-segmented" role="radiogroup" data-i18n-aria-label="user_menu.appearance" aria-label="Appearance">
+                                <button type="button" class="theme-segmented__opt" data-mode="light"
+                                        role="radio" aria-checked="false"
+                                        data-i18n-title="user_menu.theme.light" title="Light"
+                                        data-i18n-aria-label="user_menu.theme.light" aria-label="Light">
+                                    <i class="fas fa-sun"></i>
+                                </button>
+                                <button type="button" class="theme-segmented__opt" data-mode="auto"
+                                        role="radio" aria-checked="false"
+                                        data-i18n-title="user_menu.theme.auto" title="Like OS"
+                                        data-i18n-aria-label="user_menu.theme.auto" aria-label="Like OS">
+                                    <i class="fas fa-desktop"></i>
+                                </button>
+                                <button type="button" class="theme-segmented__opt" data-mode="dark"
+                                        role="radio" aria-checked="false"
+                                        data-i18n-title="user_menu.theme.dark" title="Dark"
+                                        data-i18n-aria-label="user_menu.theme.dark" aria-label="Dark">
+                                    <i class="fas fa-moon"></i>
+                                </button>
                             </div>
-                        </button>
+                        </div>
                         <button class="user-menu-item" id="user-menu-about">
                             <i class="fas fa-info-circle"></i>
                             <span data-i18n="user_menu.about">About OxiCloud</span>

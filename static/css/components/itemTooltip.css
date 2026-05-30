@@ -1,29 +1,19 @@
 /* ── Item tooltip — "technical sheet" ─────────────────────────────────────── */
 /*                                                                             */
-/* Overlays the search bar area in the top-bar while hovering a file item.    */
-/* Spans from the sidebar right-edge to just before .user-controls.           */
+/* Absolutely overlays `.search-slot` in the top-bar. The search bar stays in  */
+/* place underneath; only the tooltip's opacity is animated, so there is no    */
+/* second element to keep in sync and no display:none flicker between rapid    */
+/* hover transitions. RTL just works (inset:0).                                */
 /*                                                                             */
-/* 3-column CSS grid:  [icon]  [label]  [value]                               */
-/* All values start at the same x position regardless of label width.         */
+/* 3-column CSS grid:  [icon]  [label]  [value]                                */
+/* All values start at the same x position regardless of label width.          */
 
 .path-tooltip {
-    position: fixed;
-
-    /* Fill most of the top-bar (topbar height 70px, 8px margin top/bottom) */
-    top: 8px;
-
-    /* Desktop: starts at sidebar right edge + top-bar padding */
-    left: calc(var(--sidebar-width) + 30px);
-
-    /*
-     * Right edge stops just before .user-controls:
-     *   30px (top-bar right padding) + ~90px (notif bell + gap + avatar btn) + 4px gap
-     * Using left + right instead of width so the browser computes it dynamically.
-     */
-    right: 124px;
-
-    /* High enough to sit above the top-bar content */
-    z-index: 200;
+    /* Cover the search slot, sit above it (later in DOM order). */
+    position: absolute;
+    inset: 0;
+    /* Opaque background so the search bar underneath is fully masked. */
+    background-color: var(--color-bg-surface);
 
     display: grid;
     grid-template-columns: 1em max-content 1fr;
@@ -31,20 +21,24 @@
     row-gap: 6px;
     align-items: center;
 
-    /* Fill the top-bar height minus an 8px margin on each side */
-    height: 54px;
-    padding: 0 16px;
-    border-radius: 10px;
-    border: 2px solid var(--color-border-medium);
-
-    background-color: var(--color-bg-input);
     color: var(--color-text-muted);
     font-size: 0.75rem;
 
     pointer-events: none;
 
-    /* avoid blinking when pointer moves between items */
-    transition: display 0.2s allow-discrete;
+    /* Show instantly. The hide direction (.hidden) overrides this with a
+       1s delay so the tooltip lingers after the mouse leaves an item;
+       rapid item-to-item moves cancel the pending fade before it fires. */
+    opacity: 1;
+    transition: opacity 0.2s ease 0s;
+}
+
+/* Hidden state — override the global `.hidden { display:none !important }`
+   so we can fade with opacity instead of snapping to display:none. */
+.path-tooltip.hidden {
+    display: grid !important;
+    opacity: 0;
+    transition-delay: 1s;
 }
 
 /* Icon column */
@@ -83,23 +77,6 @@
 .path-tooltip__value--unknown {
     color: var(--color-text-faint);
     font-style: italic;
-}
-
-/* ── Narrow screens (sidebar hidden) ────────────────────────────────────── */
-/* On mobile the sidebar slides off-screen; align after the #sidebar-toggle  */
-/* button (≈44px) that takes its place in the top-bar.                       */
-
-@media (max-width: 768px) {
-    .path-tooltip {
-        /* 16px topbar padding + ~44px sidebar-toggle + 8px gap */
-        left: 68px;
-
-        /*
-         * Right edge stops before search-toggle-btn + user-controls:
-         *   ~40px (search-toggle) + 12px (gap) + ~90px (user-controls) + 16px (padding)
-         */
-        right: 158px;
-    }
 }
 
 /* ── Vignette inside tooltip ─────────────────────────────────────────────── */

@@ -33,8 +33,8 @@ import { uiNotifications } from './uiNotifications.js';
 /** @import {FileItem, FolderItem} from '../core/types.js' */
 
 /**
- * @typedef {{ key: string, label: string, orderBy: string,
- *             keyFn: (item: FileItem|FolderItem) => string|null,
+ * @typedef {{ key: string, label: string, icon?: string, orderBy: string,
+ *             keyFn?: (item: FileItem|FolderItem) => string|null,
  *             labelFn?: (key: string) => string }} GroupByDef
  */
 
@@ -49,10 +49,20 @@ import { uiNotifications } from './uiNotifications.js';
  */
 const GROUP_BY_DEFS = [
     {
+        key: '',
+        get label() {
+            return i18n.t('files.name', 'Name');
+        },
+        icon: 'fas fa-arrow-up-a-z',
+        orderBy: 'name'
+        // no keyFn → flat list.
+    },
+    {
         key: 'type',
         get label() {
             return i18n.t('groupby.type', 'Type');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'type',
         // Folders → 'Folder'; files → their pre-computed category string.
         keyFn: (item) => ('mime_type' in item ? /** @type {Record<string,string>} */ (/** @type {unknown} */ (item)).category || 'other' : 'Folder'),
@@ -82,6 +92,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.size', 'Size');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'size',
         // sizeBucket(-1) → "Folders" sentinel; no labelFn needed.
         keyFn: (item) => {
@@ -95,6 +106,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.modifiedAt', 'Modified date');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'modified_at',
         // keyFn returns the human-readable bucket; the bucket IS the key.
         keyFn: (item) => {
@@ -107,6 +119,7 @@ const GROUP_BY_DEFS = [
         get label() {
             return i18n.t('groupby.createdAt', 'Created date');
         },
+        icon: 'fas fa-layer-group',
         orderBy: 'created_at',
         keyFn: (item) => {
             const r = /** @type {Record<string, number>} */ (/** @type {unknown} */ (item));
