@@ -60,6 +60,14 @@ const groupsView = {
     /** @type {GroupMemberItem[]} — direct members of the current group */
     _members: [],
 
+    /**
+     * Id → full `GroupItem` for every nested group seen in `_members`.
+     * `listMembers` only emits `{kind, id}`, so we resolve names + virtual
+     * flag separately via `groups.resolveGroups` and look them up here.
+     * @type {Record<string, import('../../core/types.js').GroupItem>}
+     */
+    _memberGroupMeta: {},
+
     /** @type {GroupItem[]} — most recent list page */
     _items: [],
     _nextOffset: 0,
@@ -331,9 +339,30 @@ const groupsView = {
             const [group, members] = await Promise.all([groups.get(groupId), groups.listMembers(groupId)]);
             this._currentGroup = group;
             this._members = members;
+            await this._refreshMemberGroupMeta();
             this._renderDetailInto(this._bodyEl);
         } catch (err) {
             this._showFatalError(/** @type {Error} */ (err).message);
+        }
+    },
+
+    /**
+     * Resolve full GroupItem records for every nested-group member of the
+     * current group. `listMembers` returns just `{kind, id}` so without
+     * this the rows would render the raw UUID. One batch search covers
+     * all nested groups visible in the detail view.
+     */
+    async _refreshMemberGroupMeta() {
+        const ids = new Set(this._members.filter((m) => m.kind === 'group').map((m) => m.id));
+        if (ids.size === 0) {
+            this._memberGroupMeta = {};
+            return;
+        }
+        try {
+            this._memberGroupMeta = await groups.resolveGroups(ids);
+        } catch (err) {
+            console.warn('groupsView: failed to resolve nested-group names', err);
+            this._memberGroupMeta = {};
         }
     },
 
@@ -430,11 +459,16 @@ const groupsView = {
         if (m.kind === 'user') {
             row.appendChild(createUserVignette(m.id, 'sm', { showEmail: true }));
         } else {
-            // Nested group — show the vignette. We don't pre-load the name
-            // (it's just the id from the API). To get the name we'd need an
-            // extra fetch; for v1, show the id-as-name (small UX cost) and
-            // upgrade once `list_direct_members` returns enriched rows.
-            row.appendChild(createGroupVignette(m.id, 'sm'));
+            // Nested group — `listMembers` only returned `{kind, id}`, so
+            // the resolved name + virtual flag come from `_memberGroupMeta`
+            // (populated by `_refreshMemberGroupMeta` after every list-of-
+            // members reload). Fallback to the id if the resolver couldn't
+            // find it (rare — would mean the group was deleted between the
+            // listMembers and the resolveGroups call).
+            const meta = this._memberGroupMeta[m.id];
+            const displayName = meta ? groupDisplayName(meta) : m.id;
+            const icon = meta ? groupIconClass(meta) : 'fa-user-group';
+            row.appendChild(createGroupVignette(displayName, 'sm', { icon }));
         }
 
         if (this._currentGroup?.can_manage && !this._currentGroup?.is_virtual) {
@@ -763,6 +797,7 @@ const groupsView = {
         try {
             await groups.addUserMember(group.id, userId);
             this._members = await groups.listMembers(group.id);
+            await this._refreshMemberGroupMeta();
             this._renderDetailInto(this._bodyEl);
         } catch (err) {
             this._showInlineError(/** @type {Error} */ (err).message);
@@ -776,6 +811,7 @@ const groupsView = {
         try {
             await groups.addGroupMember(group.id, groupId);
             this._members = await groups.listMembers(group.id);
+            await this._refreshMemberGroupMeta();
             this._renderDetailInto(this._bodyEl);
         } catch (err) {
             this._showInlineError(/** @type {Error} */ (err).message);
@@ -793,6 +829,7 @@ const groupsView = {
                 await groups.removeGroupMember(group.id, m.id);
             }
             this._members = await groups.listMembers(group.id);
+            await this._refreshMemberGroupMeta();
             this._renderDetailInto(this._bodyEl);
         } catch (err) {
             this._showInlineError(/** @type {Error} */ (err).message);
