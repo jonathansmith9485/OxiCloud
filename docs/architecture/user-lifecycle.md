@@ -119,14 +119,28 @@ These are codified in the module-level docstring of `application/ports/user_life
 
 | Hook | Lives in | Responsibility |
 |---|---|---|
-| `AuditLifecycleHook` | `src/application/services/user_lifecycle_service.rs` (co-located with dispatcher) | All four events: emits one `tracing::info!(target: "audit", event = "user.*", ...)` per call. Co-located because audit is cross-cutting with no domain owner. |
+| `AuditLifecycleHook` | `src/application/services/user_lifecycle_service.rs` (co-located with dispatcher) | All four events: emits one `tracing::info!(target: "audit", event = "user.*", ...)` per call, with `is_external` as a field. Co-located because audit is cross-cutting with no domain owner. |
+| `HomeFolderLifecycleHook` | `src/application/services/folder_service.rs` (same module as `FolderService`) | `on_user_created` + `on_user_login`: idempotently provision "My Folder - {username}" via `FolderService::ensure_home_folder`. Short-circuits when `user.is_external()`. `on_user_logout`: `Ok(())`. `on_user_deleted`: `Ok(())` for PR 3 — PR 4 adds the trash-vs-hard-delete policy based on `DeletionMode`. Owns the responsibility that pre-PR 3 was scattered across four eager `create_personal_folder` calls in `AuthApplicationService` and one self-heal at the folder-listing path. |
 
 Subsequent PRs add:
 
-- `HomeFolderLifecycleHook` (PR 3) — owns home-folder provisioning; replaces the four eager `create_personal_folder` calls + the self-heal.
 - `AuthzCacheLifecycleHook` (PR 4) — invalidates the `user_groups_cache` Moka entry on logout/delete.
 - `SessionRevocationLifecycleHook` (PR 4) — refines per-session logout granularity; explicit session revocation inside the user-delete transaction.
 - `ExternalIdentityLifecycleHook` (PR 5, stub for now) — populated by the upcoming magic-link external-user feature.
+
+### Worked example: brand-new user logs in for the first time
+
+1. Client POSTs `/api/auth/login` with valid credentials.
+2. `AuthApplicationService::login()` validates the password against the stored Argon2 hash.
+3. **Before** `user.register_login()` is called, the dispatcher fires `dispatch_login(&user)`. The user's `last_login_at` is still `None` from creation time.
+4. `AuditLifecycleHook::on_user_login` runs first (registration order): emits `event = "user.login", user_id = ..., username = ..., is_external = false, first_login = true`.
+5. `HomeFolderLifecycleHook::on_user_login` runs next: sees `!user.is_external()`, calls `FolderService::ensure_home_folder(uid, username)`. The service checks `list_folders_by_owner(None, uid)` — empty → creates `"My Folder - alice"`. Returns `Ok(true)` (newly created).
+6. Dispatcher finishes. `user.register_login()` is now called, stamping `last_login_at` to the current time.
+7. The session row is INSERTed; access + refresh tokens generated; response returned to the client.
+
+On the user's **second** login: same flow up through step 5, but `ensure_home_folder` finds the existing folder, returns `Ok(false)`, no-op. The `AuditLifecycleHook` still emits an event, but `first_login = false` this time.
+
+If the home folder gets deleted manually (e.g., SQL `DELETE FROM storage.folders WHERE user_id = $1`), the user's **next** login will re-create it — that's the safety-net behaviour the lifecycle hook contractually owns.
 
 ## Future events (NOT shipped — design door)
 

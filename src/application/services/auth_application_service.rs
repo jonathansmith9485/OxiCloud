@@ -5,9 +5,7 @@ use crate::application::ports::auth_ports::{
     OidcIdClaims, OidcServicePort, PasswordHasherPort, SessionStoragePort, TokenServicePort,
     UserStoragePort,
 };
-use crate::application::ports::folder_ports::FolderUseCase;
 use crate::application::ports::user_lifecycle::{DeletionMode, LogoutReason};
-use crate::application::services::folder_service::FolderService;
 use crate::application::services::user_lifecycle_service::UserLifecycleService;
 use crate::common::config::OidcConfig;
 use crate::common::errors::{DomainError, ErrorKind};
@@ -73,9 +71,11 @@ pub struct AuthApplicationService {
     session_storage: Arc<SessionPgRepository>,
     password_hasher: Arc<Argon2PasswordHasher>,
     token_service: Arc<JwtTokenService>,
-    folder_service: Option<Arc<FolderService>>,
     /// Dispatcher for user-lifecycle events. `None` only in tests that don't
     /// exercise the lifecycle path; production DI always wires this.
+    /// HomeFolderLifecycleHook (registered on this dispatcher) owns the
+    /// per-user folder provisioning that AuthApplicationService used to do
+    /// inline pre-PR 3.
     user_lifecycle: Option<Arc<UserLifecycleService>>,
     /// Path to the storage directory, used for disk-space–aware quota calculation
     storage_path: PathBuf,
@@ -101,7 +101,6 @@ impl AuthApplicationService {
             session_storage,
             password_hasher,
             token_service,
-            folder_service: None,
             user_lifecycle: None,
             storage_path,
             oidc: RwLock::new(OidcState {
@@ -163,12 +162,6 @@ impl AuthApplicationService {
                 None
             }
         }
-    }
-
-    /// Configures the folder service, needed to create personal folders
-    pub fn with_folder_service(mut self, folder_service: Arc<FolderService>) -> Self {
-        self.folder_service = Some(folder_service);
-        self
     }
 
     /// Configures the user-lifecycle dispatcher. Wired by the DI factory
@@ -293,16 +286,12 @@ impl AuthApplicationService {
         // Save user
         let created_user = self.user_storage.create_user(user).await?;
 
-        // Lifecycle: notify hooks (audit, future provisioning, etc.).
-        // PR 3 will move the personal-folder creation below into a
-        // HomeFolderLifecycleHook fired here; for now both run.
+        // Lifecycle: HomeFolderLifecycleHook handles personal-folder
+        // creation (was inlined here pre-PR 3); audit log + future
+        // provisioning steps land here too.
         if let Some(lc) = &self.user_lifecycle {
             lc.dispatch_created(&created_user).await;
         }
-
-        // Create personal folder for the user
-        self.create_personal_folder(&dto.username, created_user.id())
-            .await;
 
         tracing::info!("User registered: {}", created_user.id());
         Ok(UserDto::from(created_user))
@@ -379,13 +368,11 @@ impl AuthApplicationService {
 
         // Lifecycle: notify hooks. PR 3 moves home-folder creation into
         // HomeFolderLifecycleHook fired here.
+        // Lifecycle: HomeFolderLifecycleHook provisions the admin's
+        // home folder. Audit logs the creation event.
         if let Some(lc) = &self.user_lifecycle {
             lc.dispatch_created(&created_user).await;
         }
-
-        // Create personal folder for the admin
-        self.create_personal_folder(&username, created_user.id())
-            .await;
 
         tracing::info!(
             "Initial admin created via setup: {} ({})",
@@ -923,18 +910,11 @@ impl AuthApplicationService {
                 .await?;
         }
 
-        // Lifecycle: notify hooks. PR 3 moves home-folder creation into
-        // HomeFolderLifecycleHook fired here.
+        // Lifecycle: HomeFolderLifecycleHook handles the home-folder
+        // provisioning (idempotent + short-circuits on is_external).
+        // Audit logs the creation event.
         if let Some(lc) = &self.user_lifecycle {
             lc.dispatch_created(&created).await;
-        }
-
-        // External users have no home folder by design. Internal users
-        // get one — PR 3 will move this provisioning into the lifecycle
-        // hook (which short-circuits on `is_external` itself).
-        if !created.is_external() {
-            self.create_personal_folder(&dto.username, created.id())
-                .await;
         }
 
         tracing::info!(
@@ -1397,17 +1377,14 @@ impl AuthApplicationService {
 
                 let created_user = self.user_storage.create_user(new_user).await?;
 
-                // Lifecycle: created (audit) + login (no register_login()
-                // for a fresh OIDC user means `last_login_at` is naturally
-                // None → first-login detection works).
+                // Lifecycle: created (audit + home-folder provisioning) +
+                // login (no register_login() for a fresh OIDC user means
+                // `last_login_at` is naturally None → first-login detection
+                // works). HomeFolderLifecycleHook creates the home folder.
                 if let Some(lc) = &self.user_lifecycle {
                     lc.dispatch_created(&created_user).await;
                     lc.dispatch_login(&created_user).await;
                 }
-
-                // Create personal folder
-                self.create_personal_folder(&username, created_user.id())
-                    .await;
 
                 tracing::info!(
                     "OIDC user provisioned: {} (provider: {}, sub: {})",
@@ -1503,32 +1480,10 @@ impl AuthApplicationService {
         UserRole::User
     }
 
-    /// Helper to create a personal folder for a new user
-    async fn create_personal_folder(&self, username: &str, user_id: Uuid) {
-        if let Some(folder_service) = &self.folder_service {
-            let folder_name = format!("My Folder - {}", username);
-            match folder_service
-                .create_home_folder(user_id, folder_name.clone())
-                .await
-            {
-                Ok(folder) => {
-                    tracing::info!(
-                        "Personal folder created for user {}: {} (ID: {})",
-                        user_id,
-                        folder.name,
-                        folder.id
-                    );
-                }
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to create personal folder for user {}: {}",
-                        user_id,
-                        e
-                    );
-                }
-            }
-        }
-    }
+    // `create_personal_folder` was removed in PR 3 of the
+    // UserLifecycleHook migration — home-folder provisioning is now
+    // owned by `HomeFolderLifecycleHook` in folder_service.rs and runs
+    // via `dispatch_created` / `dispatch_login`.
 }
 
 /// URL-safe base64 encoding without padding (RFC 4648 §5)

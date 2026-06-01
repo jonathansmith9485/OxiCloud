@@ -691,25 +691,35 @@ impl AppServiceFactory {
             storage_usage_service =
                 Some(self.create_storage_usage_service(&repos, &pool, &maintenance_pool));
 
-            // User-lifecycle dispatcher. Audit hook is the only one
-            // registered in PR 1; subsequent PRs register
-            // HomeFolderLifecycleHook (PR 3), AuthzCacheLifecycleHook
-            // (PR 4), etc., each living next to the service that owns
-            // its work. Hook order is registration order — document
-            // dependencies inline if/when any arise.
+            // User-lifecycle dispatcher. Hook order is registration order;
+            // document dependencies inline if/when any arise. Today:
+            //   1. AuditLifecycleHook       — fires first so the audit
+            //                                 event is recorded even if a
+            //                                 later hook errors out.
+            //   2. HomeFolderLifecycleHook  — provisions the user's home
+            //                                 folder on created/login (no-op
+            //                                 for external users).
+            // Subsequent PRs register AuthzCacheLifecycleHook (PR 4) etc.
             let user_lifecycle = Arc::new(
                 crate::application::services::user_lifecycle_service::UserLifecycleService::new()
                     .with_hook(Arc::new(
                         crate::application::services::user_lifecycle_service::AuditLifecycleHook,
+                    ))
+                    .with_hook(Arc::new(
+                        crate::application::services::folder_service::HomeFolderLifecycleHook::new(
+                            apps.folder_service_concrete.clone(),
+                        ),
                     )),
             );
 
-            // Auth services
+            // Auth services. Folder service no longer threaded here —
+            // PR 3 moved home-folder provisioning into
+            // HomeFolderLifecycleHook, which already holds an Arc to the
+            // folder service via the user_lifecycle dispatcher.
             if self.config.features.enable_auth {
                 let services = crate::infrastructure::auth_factory::create_auth_services(
                     &self.config,
                     pool.clone(),
-                    Some(apps.folder_service_concrete.clone()),
                     user_lifecycle.clone(),
                 )
                 .await
