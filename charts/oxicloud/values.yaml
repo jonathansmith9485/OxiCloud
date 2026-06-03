@@ -54,7 +54,7 @@ service:
   port: 8086
 
 secrets:
-      existingSecret: ""
+  existingSecret: ""
 
 ingress:
   enabled: true
